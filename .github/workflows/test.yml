@@ -1,0 +1,48 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, '3.10', '3.11', '3.12']
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libasound2-dev portaudio19-dev
+    
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Run tests
+      run: |
+        python -m pytest tests/ -v --tb=short
+      env:
+        SDL_AUDIODRIVER: dummy
+        PYGAME_HIDE_SUPPORT_PROMPT: 1
+    
+    - name: Test backward compatibility
+      run: |
+        python -c "import mt_toolbox; print('mt_toolbox imports successfully')"
+        python -c "from mt_toolbox import construct_scale; scale = construct_scale('C', 'Major', 'Ionian', 4, 8); print(f'Scale created: {len(scale)} notes')"
+        python -c "from mt_toolbox import construct_chord; chord = construct_chord('C', 'Major', 4); print(f'Chord created: {len(chord)} notes')"
+      env:
+        SDL_AUDIODRIVER: dummy
+        PYGAME_HIDE_SUPPORT_PROMPT: 1
