@@ -25,6 +25,24 @@ MIDI = False # Plays as wave if false and using midiutil if True
 ARPEGGIATE = False # Whether to arpeggiate chords or not
 REVERSE_SCALE = False # Whether to play scales in reverse as well
 
+_audio_player = None
+
+def get_audio_player():
+    global _audio_player
+    if _audio_player is None:
+        from audio_player import AudioPlayer
+        from models import PlaybackConfig
+        config = PlaybackConfig(midi=MIDI, arpeggiate=ARPEGGIATE, reverse_scale=REVERSE_SCALE)
+        _audio_player = AudioPlayer(config=config)
+    return _audio_player
+
+def update_audio_config():
+    global _audio_player
+    if _audio_player is not None:
+        from models import PlaybackConfig
+        config = PlaybackConfig(midi=MIDI, arpeggiate=ARPEGGIATE, reverse_scale=REVERSE_SCALE)
+        _audio_player.config = config
+
 ## Waves
 #########
 def sine_wave(hz, peak, n_samples=sample_rate):
@@ -76,11 +94,8 @@ def play_note(note, ms):
     note -- Note object
     ms -- length in milliseconds for note to play
     """
-    if MIDI:
-        create_midi([note], 'note')
-        play_midi_file(midi_filename)
-    else:
-        play_wave(sine_wave(note.frequency, sampling), ms)
+    player = get_audio_player()
+    player.play_note(note, ms)
 
 ## Chords
 #########
@@ -90,33 +105,8 @@ def play_chord(chord_notes):
     Arguments:
     chord_notes -- List of Note objects respresenting the chord
     """
-    chord_wave = 0
-    for note in chord_notes:
-        chord_wave = sum([chord_wave, sine_wave(note.frequency, sampling)])
-
-    print('Chord is now being played..')
-    if MIDI:
-        create_midi(chord_notes, 'chord')
-        play_midi_file(midi_filename)
-    else:
-        play_wave(chord_wave, 700)
-    pygame.time.delay(100)
-
-    if ARPEGGIATE:
-        print('Single notes of the chord are now being played separately..')
-        if MIDI:
-            create_midi(chord_notes, 'scale', t = 0.3)
-            play_midi_file(midi_filename)
-        else:
-            for note in chord_notes:
-                play_wave(sine_wave(note.frequency, sampling), 500)
-        pygame.time.delay(100)
-        print('Chord is now being played again..')
-        if MIDI:
-            create_midi(chord_notes, 'chord')
-            play_midi_file(midi_filename)
-        else:
-            play_wave(chord_wave, 700)
+    player = get_audio_player()
+    player.play_chord(chord_notes)
 
 ## Scales
 #########
@@ -127,24 +117,8 @@ def play_scale(scale_notes, ms):
     scale_notes -- A list of Note objects of which the scale to play is made
     ms -- length in milliseconds for each note
     """
-    print('Scale is now being played forward..')
-    if MIDI:
-        create_midi(scale_notes, 'scale')
-        play_midi_file(midi_filename)
-    else:
-        play_piece(scale_notes, ms)
-
-    if REVERSE_SCALE:
-        # Extend scale by the reverse scale
-        reverse_scale = scale_notes[::-1]
-        scale_notes.extend(reverse_scale[1:]) # drop the first element to nicely play the reverse part
-        pygame.time.delay(200)
-        print('Scale is now being played forward and then backwards..')
-        if MIDI:
-            create_midi(scale_notes, 'scale')
-            play_midi_file(midi_filename)
-        else:
-            play_piece(scale_notes, ms)
+    player = get_audio_player()
+    player.play_scale(scale_notes, ms)
 
 ## MIDI files
 #############

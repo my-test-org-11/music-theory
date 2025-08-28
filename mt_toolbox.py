@@ -126,23 +126,29 @@ def construct_scale(root_name, scale_name, mode_name, octave=4, scale_length=Non
     mode_name -- name of the musical mode mode as defined in the mode_info dict, in which to play the chord (Ionian, Dorian..etc)
     scale_length -- Defaults to standard scale length. Specify when needing non-standard scale length (ex.: span multiple octaves)
     """
-    root_note = Note(root_name, octave) if root_name != 'all' else 'all'
-    scale_signature = all_scale_info[scale_name]['signature'] if scale_name != 'all' else 'all'
-    if not scale_length:
-        # If not specified, default to standard scale length
-        scale_length = len(scale_signature) + 1
-    if mode_name != 'Ionian':
-        if len(scale_signature) != 7:
-            raise ValueError("Error: Modes not supported for non-heptatonic scales")
-        scale_signature = get_modal_scale_signature(scale_name, mode_name)
-    scale_notes = [root_note]
-    note = root_note
-    for i in range(scale_length - 1):
-        halfstep_count = 1 if scale_signature[i % len(scale_signature)] == S else 2 if scale_signature[i % len(scale_signature)] == T else 3
-        note = note.get_next_step_note(halfstep_count)
-        scale_notes.append(note)
-
-    return scale_notes
+    from note import Note
+    if root_name == 'all' or scale_name == 'all':
+        root_note = Note(root_name, octave) if root_name != 'all' else 'all'
+        scale_signature = all_scale_info[scale_name]['signature'] if scale_name != 'all' else 'all'
+        if not scale_length:
+            scale_length = len(scale_signature) + 1 if scale_signature != 'all' else 8
+        if mode_name != 'Ionian' and scale_signature != 'all':
+            if len(scale_signature) != 7:
+                raise ValueError("Error: Modes not supported for non-heptatonic scales")
+            scale_signature = get_modal_scale_signature(scale_name, mode_name)
+        scale_notes = [root_note]
+        note = root_note
+        from note import Note
+        if root_note != 'all' and scale_signature != 'all' and isinstance(note, Note):
+            for i in range(scale_length - 1):
+                halfstep_count = 1 if scale_signature[i % len(scale_signature)] == S else 2 if scale_signature[i % len(scale_signature)] == T else 3
+                note = note.get_next_step_note(halfstep_count)
+                scale_notes.append(note)
+        return scale_notes
+    
+    from scale import create_scale
+    scale_obj = create_scale(root_name, scale_name, mode_name, octave, scale_length)
+    return scale_obj.construct_notes()
 
 def construct_chord(root_name, chord_name, octave=4):
     """Construct a wave from a combination of simultaneous notes(chord)
@@ -151,16 +157,22 @@ def construct_chord(root_name, chord_name, octave=4):
     root_name -- name of root note
     chord_name -- name of the chord
     """
-    root_note = Note(root_name, octave) if root_name != 'all' else 'all'
-    chord_signature = all_chord_info[chord_name]['signature'] if chord_name != 'all' else 'all'
-    base_scale_notes = construct_scale(root_name, 'Major', 'Ionian', octave, 9)
-    chord_notes = []
-
-    for index in chord_signature:
-        index_s = int(re.findall(r'\d+', index)[0]) if type(index) is str else index
-        note = note_modifier(index, base_scale_notes[index_s-1])
-        chord_notes.append(note)
-    return chord_notes
+    if root_name == 'all' or chord_name == 'all':
+        root_note = Note(root_name, octave) if root_name != 'all' else 'all'
+        chord_signature = all_chord_info[chord_name]['signature'] if chord_name != 'all' else 'all'
+        base_scale_notes = construct_scale(root_name, 'Major', 'Ionian', octave, 9)
+        chord_notes = []
+        if chord_signature != 'all' and isinstance(base_scale_notes, list):
+            for index in chord_signature:
+                index_s = int(re.findall(r'\d+', str(index))[0]) if type(index) is str else index
+                if index_s <= len(base_scale_notes):
+                    note = note_modifier(index, base_scale_notes[index_s-1])
+                    chord_notes.append(note)
+        return chord_notes
+    
+    from chord import create_chord
+    chord_obj = create_chord(root_name, chord_name, octave)
+    return chord_obj.construct_notes()
 
 def note_modifier(note_index, note):
     """Returns a modified Note object after sharpening or flattening the note based on # or b modifiers
@@ -422,8 +434,14 @@ def get_chord_list_from_progression(key, progression, octave, random_type=False)
         if not chord_matrix[degree-1]:
             continue
         chord_type = chord_matrix[degree-1][0] if not random_type else random.choice(chord_matrix[degree-1])
-        chord_list.append(base_scale[degree-1].name)
-        octave_list.append(base_scale[degree-1].octave)
+        scale_note = base_scale[degree-1]
+        from note import Note
+        if isinstance(scale_note, Note):
+            chord_list.append(scale_note.name)
+            octave_list.append(scale_note.octave)
+        else:
+            chord_list.append(str(scale_note))
+            octave_list.append(octave)
         type_list.append(chord_type)
     return chord_list, type_list, octave_list
 

@@ -87,7 +87,8 @@ def command_processor(args, parser):
 
     if args['scale']:
         scale_notes = mt.construct_scale(args['root'], args['scale'], args['mode'], 4)
-        notes = [n.name for n in scale_notes]
+        from note import Note
+        notes = [n.name if isinstance(n, Note) else str(n) for n in scale_notes]
         title = f"{args['root']} {args['mode']} of the {args['scale']} scale" if args['mode'] != 'Ionian' else f"{args['root']} {args['scale']} scale"
         if args['scale'] == 'Minor':
             minor_flag = True
